@@ -23,6 +23,12 @@ export class InfraStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
+    table.addGlobalSecondaryIndex({
+      indexName: "GSI1",
+      partitionKey: { name: "GSI1PK", type: dynamodb.AttributeType.STRING },
+      sortKey: { name: "GSI1SK", type: dynamodb.AttributeType.STRING },
+    });
+
     const ingestFn = new lambda.NodejsFunction(this, "IngestFunction", {
       entry: "lambda/ingest.ts",
       handler: "handler",
@@ -32,10 +38,22 @@ export class InfraStack extends cdk.Stack {
 
     table.grantReadWriteData(ingestFn);
 
+    const getFn = new lambdaBase.Function(this, "GetFunction", {
+      runtime: lambdaBase.Runtime.PYTHON_3_12,
+      handler: "app.handler",
+      code: lambdaBase.Code.fromAsset("../services/get"),
+      environment: { TABLE_NAME: table.tableName },
+    });
+    table.grantReadData(getFn);
+
     const api = new apigateway.RestApi(this, "JobApi");
     const jobs = api.root.addResource("jobs");
+    const job = jobs.addResource("{jobId}");
+    job.addMethod("GET", new apigateway.LambdaIntegration(getFn));
     jobs.addMethod("POST", new apigateway.LambdaIntegration(ingestFn));
     new cdk.CfnOutput(this, "ApiURL", {value: api.url});
+
+
 
   }
 }

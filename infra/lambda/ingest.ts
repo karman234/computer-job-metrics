@@ -12,6 +12,8 @@ export const handler = async (event: any) => {
     return { statusCode: 400, body: JSON.stringify({ error: "submittedBy and cluster required" }) };
   }
 
+  const submittedAt = new Date().toISOString();
+  const status = "QUEUED";
   const jobId = randomUUID();
   const item = {
     PK: `JOB#${jobId}`,
@@ -25,6 +27,8 @@ export const handler = async (event: any) => {
     runtimeSeconds: 0,
     cpuHours: 0,
     exitCode: null,
+    GSI1PK: `STATUS#${status}`,
+    GSI1SK: submittedAt,
   };
 
   await db.send(new PutCommand({ TableName: process.env.TABLE_NAME, Item: item }));
